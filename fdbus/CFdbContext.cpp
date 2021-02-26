@@ -256,3 +256,81 @@ CLogProducer *CFdbContext::getLogger()
     return mLogger;
 }
 
+// https://blog.csdn.net/jasonchen_gbd/article/details/44044899
+// https://cmdlinelinux.blogspot.com/2020/01/i-have-been-chasing-for-toolcompiler.html
+// https://gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a01696.html
+// https://gcc.gnu.org/onlinedocs/libstdc++/manual/ext_demangling.html
+extern "C" {
+    void __attribute__((no_instrument_function)) __cyg_profile_func_enter(void *this_func, void *call_site);
+    void __attribute__((no_instrument_function)) __cyg_profile_func_exit(void *this_func, void *call_site);
+}
+
+#include <dlfcn.h>
+#include <stdio.h>
+#include <cxxabi.h>
+#include <unistd.h>        //gettid()
+
+static std::string __attribute__((no_instrument_function)) getTimeStr() {
+    ;
+    auto now = std::chrono::system_clock::now();
+    auto tt = std::chrono::system_clock::to_time_t(now);
+    struct tm* ptm = localtime(&tt);
+    char date[32] = { 0 };
+    snprintf(date, sizeof(date),
+            /*"%02d-%02d-"\*/
+            "%02d:%02d:%02d.%06ld",
+            /*(int)ptm->tm_mon + 1, (int)ptm->tm_mday,*/
+            (int)ptm->tm_hour, (int)ptm->tm_min, (int)ptm->tm_sec,
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                now.time_since_epoch()).count()%1000000);
+    return date;
+}
+
+void __attribute__((no_instrument_function)) processfnptr (void *this_fn,
+                               void *call_site, bool isIn) {
+    int     status;
+    Dl_info info;
+    dladdr(this_fn, &info);
+    auto tid = gettid();
+    const char* brace = (isIn?"{":"}");
+    const std::string dateStr = getTimeStr();
+
+    // https://en.cppreference.com/w/cpp/keyword/thread_local
+    // https://murphypei.github.io/blog/2020/02/thread-local
+    thread_local int indent = 2;
+    if (!isIn) {
+        indent -= 2;
+    }
+
+    char *realname = abi::__cxa_demangle(info.dli_sname, nullptr, 0, &status);
+    if (realname) {
+        fprintf(stderr, "|cyg|%s %d%*c%s " \
+                "%s\n",
+                dateStr.c_str(), tid, indent, ' ', brace,
+                realname);
+        free(realname);
+    } else {
+        fprintf(stderr, "|cyg|%s %d%*c%s " \
+                "%s %p\n",
+                dateStr.c_str(), tid, indent, ' ', brace,
+                info.dli_sname, this_fn);
+    }
+
+    if (isIn) {
+        indent += 2;
+    }
+}
+
+static std::mutex gCygMutex;
+void __attribute__((no_instrument_function)) __cyg_profile_func_enter (void *this_fn,
+                               void *call_site) {
+    std::lock_guard<decltype(gCygMutex)> _l(gCygMutex);
+    processfnptr(this_fn, call_site, true);
+}
+
+void __attribute__((no_instrument_function)) __cyg_profile_func_exit  (void *this_fn,
+                               void *call_site) {
+    std::lock_guard<decltype(gCygMutex)> _l(gCygMutex);
+    processfnptr(this_fn, call_site, false);
+
+}

@@ -1,10 +1,14 @@
 cmake_minimum_required(VERSION 3.1.3)
 project(fdbus-example C CXX)
 
-option(fdbus_LOG_TO_STDOUT "Log to stdout" OFF)
+option(fdbus_LOG_TO_STDOUT "Log to stdout" ON)
 option(fdbus_ENABLE_LOG "Enable log" ON)
 option(fdbus_NORMAL_TEST "build test for normal lib test" ON)
 option(fdbus_CLIB_TEST "build test for clib" ON)
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -finstrument-functions -finstrument-functions-exclude-file-list=/usr/include -rdynamic")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finstrument-functions -finstrument-functions-exclude-file-list=/usr/include -rdynamic")
+link_directories(${CMAKE_SOURCE_DIR}/../build)
 
 if (fdbus_LOG_TO_STDOUT)
     add_definitions("-DCONFIG_LOG_TO_STDOUT")

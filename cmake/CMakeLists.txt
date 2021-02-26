@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1.3)
 project(fdbus C CXX)
 
 option(fdbus_ENABLE_LOG "Enable log" ON)
-option(fdbus_LOG_TO_STDOUT "Log to stdout" OFF)
+option(fdbus_LOG_TO_STDOUT "Log to stdout" ON)
 option(fdbus_ENABLE_MESSAGE_METADATA "Enable metadata of message" ON)
 option(fdbus_SOCKET_ENABLE_PEERCRED "Enable peercred of socket" ON)
 option(fdbus_ALLOC_PORT_BY_SYSTEM "Allocate port number by system rather than by name server" OFF)
@@ -15,6 +15,9 @@ option(fdbus_LINK_PTHREAD_LIB "specify -lsocket to link" ON)
 option(fdbus_BUILD_CLIB "build library for C" ON)
 option(fdbus_FORCE_NO_RTTI "forced to build without rtti" ON)
 option(fdbus_UDS_ABSTRACT "using abstract address for UDS" OFF)
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -finstrument-functions -finstrument-functions-exclude-file-list=/usr/include -rdynamic")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finstrument-functions -finstrument-functions-exclude-file-list=/usr/include -rdynamic")
 
 if (MSVC)
     add_definitions("-D__WIN32__")
@@ -143,6 +146,7 @@ add_library(common_base ${LIB_BUILD_TYPE}
                           ${OTHER_SOURCES}
                           ${SECURITY_SOURCES}
 )
+target_link_libraries(common_base ${CMAKE_DL_LIBS})
 install(TARGETS common_base DESTINATION usr/lib)
 install(DIRECTORY ${PACKAGE_SOURCE_ROOT}/public/common_base/ DESTINATION usr/include/common_base)
 
